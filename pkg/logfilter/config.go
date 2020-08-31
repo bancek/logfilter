@@ -26,6 +26,11 @@ type Config struct {
 	// (LOGFILTER_EXCLUDETEMPLATE)
 	ExcludeTemplate string
 
+	// FilterQuery is a JQ query. You can use `select(.k1 != "v1") | select(.k2 !=
+	// "v2")` to filter the JSON lines.
+	// (LOGFILTER_FILTER_QUERY)
+	FilterQuery string
+
 	// DebugListenAddr is the address of the HTTP debug (pprof) server
 	// (LOGFILTER_DEBUGLISTENADDR).
 	DebugListenAddr string `default:"localhost:4083"`

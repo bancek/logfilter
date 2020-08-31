@@ -6,12 +6,12 @@ import (
 	. "github.com/bancek/logfilter/pkg/logfilter"
 )
 
-func BenchmarkJSONFilterIsIncluded(b *testing.B) {
+func BenchmarkJQJSONFilter(b *testing.B) {
 	line := []byte(`{"Timestamp":"2020-08-18T17:16:36.9975268+00:00","Level":"Information","MessageTemplate":"Test message","Properties":{"DurationMs":1}}`)
 
-	excludeTemplate := `{{with .Level}}{{eq . "Debug"}}{{end}}{{with .MessageTemplate}}{{eq . "Test message"}}{{end}}`
+	query := `select(.Level != "Debug") | select(.MessageTemplate != "Test message")`
 
-	jsonFilter, err := NewJSONFilter(excludeTemplate)
+	jsonFilter, err := NewJQJSONFilter(query)
 	if err != nil {
 		b.Error(err)
 	}
