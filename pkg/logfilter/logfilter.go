@@ -39,7 +39,7 @@ type LogFilter struct {
 
 	linesChan chan []byte
 
-	jsonFilter *JSONFilter
+	jsonFilter JSONFilter
 
 	fullWriter       io.Writer
 	lumberjackLogger *lumberjack.Logger
@@ -82,11 +82,28 @@ func (f *LogFilter) Init(ctx context.Context) error {
 
 	f.linesChan = make(chan []byte)
 
-	f.logger.WithField("excludeTemplate", f.config.ExcludeTemplate).Debug("Initializing JSON filter")
+	if f.config.ExcludeTemplate != "" && f.config.FilterQuery != "" {
+		return xerrors.Errorf("cannot use both exclude template and filter query")
+	}
 
-	f.jsonFilter, err = NewJSONFilter(f.config.ExcludeTemplate)
-	if err != nil {
-		return xerrors.Errorf("failed to build json filter: %w", err)
+	if f.config.ExcludeTemplate != "" {
+		f.logger.WithField("excludeTemplate", f.config.ExcludeTemplate).Debug("Initializing template JSON filter")
+
+		jsonFilter, err := NewTemplateJSONFilter(f.config.ExcludeTemplate)
+		if err != nil {
+			return xerrors.Errorf("failed to build json filter: %w", err)
+		}
+		f.jsonFilter = jsonFilter
+	} else if f.config.FilterQuery != "" {
+		f.logger.WithField("filterQuery", f.config.FilterQuery).Debug("Initializing JQ JSON filter")
+
+		jsonFilter, err := NewJQJSONFilter(f.config.FilterQuery)
+		if err != nil {
+			return xerrors.Errorf("failed to build json filter: %w", err)
+		}
+		f.jsonFilter = jsonFilter
+	} else {
+		f.jsonFilter = StaticJSONFilter(true)
 	}
 
 	f.fullWriter = ioutil.Discard
@@ -270,7 +287,9 @@ func (f *LogFilter) scanLines(r io.Reader) error {
 func (f *LogFilter) isLineIncluded(line []byte) bool {
 	ok, err := f.jsonFilter.IsIncluded(line)
 	if err != nil {
-		f.logger.WithField("line", line).Debug("LogFilter failed to filter line")
+		if f.logger.Level <= logrus.DebugLevel {
+			f.logger.WithField("line", string(line)).Debug("LogFilter failed to filter line")
+		}
 		return true
 	}
 	return ok

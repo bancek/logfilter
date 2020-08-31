@@ -35,6 +35,7 @@ var _ = Describe("LogFilter", func() {
 		"",
 	}
 	defaultExcludeTpl := `{{with .Level}}{{eq . "Debug"}}{{end}}{{with .MessageTemplate}}{{eq . "Test message"}}{{end}}`
+	defaultFilterQuery := `select(.Level != "Debug") | select(.MessageTemplate != "Test message")`
 
 	run := func(config *Config, reader io.Reader, writer io.Writer) error {
 		logFilter := NewLogFilter(config, reader, writer, Logger)
@@ -54,6 +55,7 @@ var _ = Describe("LogFilter", func() {
 		os.Setenv(prefix+"_CMD", `bash -c "echo \"123\""`)
 		os.Setenv(prefix+"_CMDSHUTDOWNTIMEOUT", "1s")
 		os.Setenv(prefix+"_EXCLUDETEMPLATE", "tpl")
+		os.Setenv(prefix+"_FILTERQUERY", ".")
 		os.Setenv(prefix+"_DEBUGLISTENADDR", "localhost:1234")
 		os.Setenv(prefix+"_FULLOUTPUTFILENAME", "filename")
 		os.Setenv(prefix+"_FULLOUTPUTMAXSIZEMB", "2")
@@ -71,6 +73,7 @@ var _ = Describe("LogFilter", func() {
 			Cmd:                  []string{"bash", "-c", `echo "123"`},
 			CmdShutdownTimeout:   1 * time.Second,
 			ExcludeTemplate:      "tpl",
+			FilterQuery:          ".",
 			DebugListenAddr:      "localhost:1234",
 			FullOutputFilename:   "filename",
 			FullOutputMaxSizeMB:  2,
@@ -114,6 +117,19 @@ var _ = Describe("LogFilter", func() {
 	It("should filter the input", func() {
 		config := &Config{}
 		config.ExcludeTemplate = defaultExcludeTpl
+
+		reader := bytes.NewReader([]byte(testInput))
+		writer := bytes.NewBuffer(nil)
+
+		err := run(config, reader, writer)
+		Expect(err).To(HaveOccurred())
+
+		Expect(strings.Split(writer.String(), "\n")).To(Equal(expectedOutput))
+	})
+
+	It("should filter the input using JQ filter query", func() {
+		config := &Config{}
+		config.FilterQuery = defaultFilterQuery
 
 		reader := bytes.NewReader([]byte(testInput))
 		writer := bytes.NewBuffer(nil)
