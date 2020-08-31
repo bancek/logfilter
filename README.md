@@ -17,6 +17,9 @@ go run . sh -c 'echo "{\"Level\": \"Debug\", \"Message\": \"Excluded\"}"; echo "
 
 ```sh
 go test ./...
+
+# Run tests in Docker
+docker run --rm -v "$(pwd):/app" -w /app -e CGO_ENABLED=0 golang:1.14.7-alpine sh -c 'go get ./... && go test ./...'
 ```
 
 ### Coverage

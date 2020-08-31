@@ -192,12 +192,20 @@ func (f *LogFilter) Start() error {
 			select {
 			case line := <-f.linesChan:
 				if f.isLineIncluded(line) {
-					f.writer.Write(line)
-					f.writer.Write(newLine)
+					if _, err := f.writer.Write(line); err != nil {
+						return xerrors.Errorf("writer write failed: %w", err)
+					}
+					if _, err := f.writer.Write(newLine); err != nil {
+						return xerrors.Errorf("writer write failed: %w", err)
+					}
 				}
 
-				f.fullWriter.Write(line)
-				f.fullWriter.Write(newLine)
+				if _, err := f.fullWriter.Write(line); err != nil {
+					return xerrors.Errorf("full writer write failed: %w", err)
+				}
+				if _, err := f.fullWriter.Write(newLine); err != nil {
+					return xerrors.Errorf("full writer write failed: %w", err)
+				}
 			case <-linesDone:
 				return nil
 			}

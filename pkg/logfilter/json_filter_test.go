@@ -20,6 +20,6 @@ func BenchmarkJSONFilterIsIncluded(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		jsonFilter.IsIncluded(line)
+		_, _ = jsonFilter.IsIncluded(line)
 	}
 }
