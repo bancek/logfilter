@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	"golang.org/x/xerrors"
 
 	. "github.com/bancek/logfilter/pkg/logfilter"
 )
@@ -50,7 +51,7 @@ var _ = Describe("LogFilter", func() {
 
 	It("should parse the config", func() {
 		prefix := strings.ToUpper("LOGFILTERTEST" + Rand())
-		os.Setenv(prefix+"_CMD", `sh -c "echo \"123\""`)
+		os.Setenv(prefix+"_CMD", `bash -c "echo \"123\""`)
 		os.Setenv(prefix+"_CMDSHUTDOWNTIMEOUT", "1s")
 		os.Setenv(prefix+"_EXCLUDETEMPLATE", "tpl")
 		os.Setenv(prefix+"_DEBUGLISTENADDR", "localhost:1234")
@@ -67,7 +68,7 @@ var _ = Describe("LogFilter", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(config).To(Equal(&Config{
-			Cmd:                  []string{"sh", "-c", `echo "123"`},
+			Cmd:                  []string{"bash", "-c", `echo "123"`},
 			CmdShutdownTimeout:   1 * time.Second,
 			ExcludeTemplate:      "tpl",
 			DebugListenAddr:      "localhost:1234",
@@ -141,7 +142,7 @@ var _ = Describe("LogFilter", func() {
 			scriptLines = append(scriptLines, "echo "+shellquote.Join(line))
 		}
 		config := &Config{}
-		config.Cmd = []string{"sh", "-c", strings.Join(scriptLines, "\n")}
+		config.Cmd = []string{"bash", "-c", strings.Join(scriptLines, "\n")}
 		config.ExcludeTemplate = defaultExcludeTpl
 
 		writer := bytes.NewBuffer(nil)
@@ -158,7 +159,7 @@ var _ = Describe("LogFilter", func() {
 			scriptLines = append(scriptLines, "echo "+shellquote.Join(line)+" >&2")
 		}
 		config := &Config{}
-		config.Cmd = []string{"sh", "-c", strings.Join(scriptLines, "\n")}
+		config.Cmd = []string{"bash", "-c", strings.Join(scriptLines, "\n")}
 		config.ExcludeTemplate = defaultExcludeTpl
 
 		writer := bytes.NewBuffer(nil)
@@ -175,7 +176,7 @@ var _ = Describe("LogFilter", func() {
 			scriptLines = append(scriptLines, "echo "+shellquote.Join(line))
 		}
 		config := &Config{}
-		config.Cmd = []string{"sh", "-c", "function onint {\n" + strings.Join(scriptLines, "\n") + "\n}\n trap onint SIGINT\n while true; do sleep 0.1; done"}
+		config.Cmd = []string{"bash", "-c", "function onint {\n" + strings.Join(scriptLines, "\n") + "\n}\n trap onint SIGINT\n while true; do sleep 0.1; done"}
 		config.CmdShutdownTimeout = 500 * time.Millisecond
 		config.ExcludeTemplate = defaultExcludeTpl
 
@@ -268,6 +269,38 @@ var _ = Describe("LogFilter", func() {
 		Expect(string(out)).To(Equal(testInput + "\n"))
 	})
 
+	It("should fail if writer.Write fails", func() {
+		config := &Config{}
+		config.ExcludeTemplate = defaultExcludeTpl
+
+		reader := bytes.NewReader([]byte(testInput))
+		writer := funcWriter(func(b []byte) (int, error) {
+			return 0, xerrors.Errorf("custom write error")
+		})
+
+		err := run(config, reader, writer)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("custom write error"))
+	})
+
+	It("should fail if full writer fails", func() {
+		tmpDir, err := ioutil.TempDir("", "logfilter-test-")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(tmpDir)
+		Expect(os.Mkdir(filepath.Join(tmpDir, "readonly"), 0400)).To(Succeed())
+
+		config := &Config{}
+		config.ExcludeTemplate = defaultExcludeTpl
+		config.FullOutputFilename = filepath.Join(tmpDir, "readonly", "logfilter.log")
+
+		reader := bytes.NewReader([]byte(testInput))
+		writer := bytes.NewBuffer(nil)
+
+		err = run(config, reader, writer)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("error getting log file info"))
+	})
+
 	It("should rotate full output file", func() {
 		tmpDir, err := ioutil.TempDir("", "logfilter-test-")
 		Expect(err).NotTo(HaveOccurred())
@@ -306,5 +339,11 @@ var _ = Describe("LogFilter", func() {
 type funcReader func([]byte) (int, error)
 
 func (r funcReader) Read(b []byte) (int, error) {
+	return r(b)
+}
+
+type funcWriter func([]byte) (int, error)
+
+func (r funcWriter) Write(b []byte) (int, error) {
 	return r(b)
 }
