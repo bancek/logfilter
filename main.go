@@ -28,7 +28,7 @@ func main() {
 
 	err := envconfig.Process("logfilter", &config)
 	if err != nil {
-		logger.Fatal(err)
+		logger.WithError(err).Fatal("Failed to load config")
 	}
 
 	logLevel, err := logrus.ParseLevel(config.LogLevel)
@@ -39,7 +39,7 @@ func main() {
 
 	if len(os.Args) > 1 {
 		if len(config.Cmd) > 0 {
-			logger.Fatal("Cannot specify both LOGFILTER_CMD and process arguments")
+			logger.WithError(err).Fatal("Cannot specify both LOGFILTER_CMD and process arguments")
 		}
 
 		config.Cmd = os.Args[1:]
@@ -72,12 +72,13 @@ func main() {
 
 	err = logFilter.Init(ctx)
 	if err != nil {
-		os.Exit(1)
+		logger.WithError(err).Fatal("Failed to init log filter")
 	}
 	defer logFilter.Close()
 
 	err = logFilter.Start()
 	if err != nil {
-		os.Exit(3)
+		logger.WithError(err).Warn("Log filter shutdown")
+		os.Exit(2)
 	}
 }

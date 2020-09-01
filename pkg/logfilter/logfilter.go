@@ -237,7 +237,6 @@ func (f *LogFilter) Start() error {
 
 	err := f.errGroup.Wait()
 	if err != nil {
-		f.logger.WithError(err).Warn("Shutdown with error")
 		return err
 	}
 
