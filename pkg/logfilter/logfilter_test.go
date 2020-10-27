@@ -80,6 +80,7 @@ var _ = Describe("LogFilter", func() {
 			FullOutputMaxAgeDays: 3,
 			FullOutputMaxBackups: 4,
 			FullOutputCompress:   true,
+			MaxScanLineSize:      52428800,
 			LogLevel:             "warn",
 		}))
 	})
