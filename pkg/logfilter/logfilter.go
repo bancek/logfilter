@@ -265,6 +265,7 @@ func (f *LogFilter) Close() error {
 
 func (f *LogFilter) scanLines(r io.Reader) error {
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 4096), f.config.MaxScanLineSize)
 
 	for scanner.Scan() {
 		b := scanner.Bytes()

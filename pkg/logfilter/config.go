@@ -65,6 +65,10 @@ type Config struct {
 	// (LOGFILTER_FULLOUTPUTCOMPRESS)
 	FullOutputCompress bool
 
+	// MaxScanLineSize is the maximum size used to buffer lines.
+	// (LOGFILTER_MAXSCANLINESIZE)
+	MaxScanLineSize int `default:"52428800"`
+
 	// LogLevel is the log level of the logfilter.
 	// (LOGFILTER_LOGLEVEL)
 	LogLevel string `default:"info"`
